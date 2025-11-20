@@ -15,91 +15,87 @@ class Circle {
     this.vx = vx;
     this.vy = vy;
   }
-  update() {
-    ctx.beginPath();
-    ctx.fillStyle = "#FFF";
-    ctx.arc( this.x, this.y, this.r, 0, Math.PI * 2, false );
-    ctx.fill();
-    ctx.closePath();
-
+  update( draw = true ) {
+    if ( draw ) {
+      ctx.beginPath();
+      ctx.fillStyle = "#FFF";
+      ctx.arc( this.x, this.y, this.r, 0, Math.PI * 2, false );
+      ctx.fill();
+      ctx.closePath();
+    }
     this.x += this.vx;
     this.y += this.vy;
   }
 }
 
-const tank1 = new Circle( canvas.width - 30, 30, 20 );
-const tank2 = new Circle( canvas.width - 30, canvas.height / 2, 20 );
-const tank3 = new Circle( canvas.width - 30, canvas.height - 30, 20 );
-const tank4 = new Circle( canvas.width / 2, canvas.height - 30, 20 );
-const tank5 = new Circle( canvas.width / 2, 30, 20 );
-const tank6 = new Circle( 30, canvas.height / 2, 20 );
-const tank7 = new Circle( 30, canvas.height - 30, 20 );
-const tank8 = new Circle( 30, 30, 20 );
+const tanks = [
+  new Circle( canvas.width - 30, 30, 20 ),
+  new Circle( canvas.width - 30, canvas.height / 2, 20 ),
+  new Circle( canvas.width - 30, canvas.height - 30, 20 ),
+  new Circle( canvas.width / 2, canvas.height - 30, 20 ),
+  new Circle( canvas.width / 2, 30, 20 ),
+  new Circle( 30, canvas.height / 2, 20 ),
+  new Circle( 30, canvas.height - 30, 20 ),
+  new Circle( 30, 30, 20 ),
+];
 
 const player = new Circle( canvas.width / 2, canvas.height / 2, 10 );
 let playerHealth = 100;
 
 const bullets = [];
-const tanks = [ tank1, tank2, tank3, tank4, tank5, tank6, tank7, tank8 ];
-
-const __CONFIG__ = {
-  v: 6.5
-};
+const __CONFIG__ = { player_v: 5, closestTankBulletV: 5, secondClosestTankBulletV: 4 };
 
 function movement() {
-  if ( keys[ "w" ] && player.y > 23 ) player.vy = -__CONFIG__.v;
-  else if ( keys[ "s" ] && player.y < canvas.height - 20 ) player.vy = __CONFIG__.v;
-  else player.vy = 0;
+  player.vy = keys[ "w" ] ? -__CONFIG__.player_v : keys[ "s" ] ? __CONFIG__.player_v : 0;
+  player.vx = keys[ "a" ] ? -__CONFIG__.player_v : keys[ "d" ] ? __CONFIG__.player_v : 0;
 
-  if ( keys[ "a" ] && player.x > 23 ) player.vx = -__CONFIG__.v;
-  else if ( keys[ "d" ] && player.x < canvas.width - 20 ) player.vx = __CONFIG__.v;
-  else player.vx = 0;
+  player.x = Math.max( 23, Math.min( canvas.width - 20, player.x ) ); // clamp kar ra
+  player.y = Math.max( 23, Math.min( canvas.height - 20, player.y ) );
 }
 
 function distance( a, b ) {
   const dx = b.x - a.x;
   const dy = b.y - a.y;
-  return Math.sqrt( dx * dx + dy * dy );
+  return dx * dx + dy * dy;
 }
 
 function shootFromTank( player, tanks ) {
-  const distances = tanks.map( t => ( {
-    tank: t,
-    dist: distance( player, t )
-  } ) );
+  const closestTwo = [ ...tanks ]
+    .map( t => ( { tank: t, dist: distance( player, t ) } ) )
+    .sort( ( a, b ) => a.dist - b.dist )
+    .slice( 0, 2 );
 
-  distances.sort( ( a, b ) => a.dist - b.dist );
-
-  const closestTwo = distances.slice( 0, 2 );
-
-  const speed1 = 6;
-  const speed2 = 5;
+  const speeds = [ __CONFIG__.closestTankBulletV, __CONFIG__.secondClosestTankBulletV ];
 
   closestTwo.forEach( ( obj, index ) => {
-    const tank = obj.tank;
-    const angle = Math.atan2( player.y - tank.y, player.x - tank.x );
-    const speed = index === 0 ? speed1 : speed2;
-    const vx = Math.cos( angle ) * speed;
-    const vy = Math.sin( angle ) * speed;
-    bullets.push( new Circle( tank.x, tank.y, 5, vx, vy ) );
+    const t = obj.tank;
+    const angle = Math.atan2( player.y - t.y, player.x - t.x );
+    const speed = speeds[ index ];
+
+    bullets.push(
+      new Circle(
+        t.x,
+        t.y,
+        5,
+        Math.cos( angle ) * speed,
+        Math.sin( angle ) * speed
+      )
+    );
   } );
 }
 
 function bulletHitsPlayer( bullet, player ) {
   const dx = bullet.x - player.x;
   const dy = bullet.y - player.y;
-  return Math.sqrt( dx * dx + dy * dy ) < bullet.r + player.r;
+  return dx * dx + dy * dy < ( bullet.r + player.r ) ** 2;
 }
 
 function drawHealthBar() {
   const maxWidth = 200;
-
   ctx.fillStyle = "red";
   ctx.fillRect( 20, 20, maxWidth, 15 );
-
   ctx.fillStyle = "lime";
   ctx.fillRect( 20, 20, ( playerHealth / 100 ) * maxWidth, 15 );
-
   ctx.strokeStyle = "white";
   ctx.strokeRect( 20, 20, maxWidth, 15 );
 }
@@ -108,7 +104,6 @@ function drawGameOver() {
   ctx.fillStyle = "white";
   ctx.font = "40px Arial";
   ctx.fillText( "Game Over!", canvas.width / 2 - 100, canvas.height / 2 - 20 );
-
   ctx.font = "25px Arial";
   ctx.fillText( "Play Again? (Y / N)", canvas.width / 2 - 110, canvas.height / 2 + 20 );
 }
@@ -132,21 +127,32 @@ function update() {
   drawHealthBar();
   movement();
   player.update();
-  tanks.forEach( tank => tank.update() );
+  tanks.forEach( t => t.update() );
 
-  bullets.forEach( ( bullet, i ) => {
-    bullet.update();
+  for ( let i = bullets.length - 1; i >= 0; i-- ) {
+    const b = bullets[ i ];
+    b.update();
 
-    if ( bulletHitsPlayer( bullet, player ) ) {
+    if (
+      b.x < -20 ||
+      b.x > canvas.width + 20 ||
+      b.y < -20 ||
+      b.y > canvas.height + 20
+    ) {
+      bullets.splice( i, 1 );
+      continue;
+    }
+
+    if ( bulletHitsPlayer( b, player ) ) {
       bullets.splice( i, 1 );
       playerHealth -= 10;
 
       if ( playerHealth <= 0 ) {
-        playerHealth = 0;
         gameOver = true;
+        playerHealth = 0;
       }
     }
-  } );
+  }
 
   if ( !gameOver ) requestAnimationFrame( update );
   else drawGameOver();
@@ -154,7 +160,6 @@ function update() {
 
 update();
 
-// key handler
 document.onkeydown = e => {
   keys[ e.key ] = true;
 
