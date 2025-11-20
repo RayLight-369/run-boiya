@@ -15,14 +15,13 @@ class Circle {
     this.vx = vx;
     this.vy = vy;
   }
-  update( draw = true ) {
-    if ( draw ) {
-      ctx.beginPath();
-      ctx.fillStyle = "#FFF";
-      ctx.arc( this.x, this.y, this.r, 0, Math.PI * 2, false );
-      ctx.fill();
-      ctx.closePath();
-    }
+  update() {
+    ctx.beginPath();
+    ctx.fillStyle = "#FFF";
+    ctx.arc( this.x, this.y, this.r, 0, Math.PI * 2 );
+    ctx.fill();
+    ctx.closePath();
+
     this.x += this.vx;
     this.y += this.vy;
   }
@@ -41,15 +40,28 @@ const tanks = [
 
 const player = new Circle( canvas.width / 2, canvas.height / 2, 10 );
 let playerHealth = 100;
-
 const bullets = [];
 const __CONFIG__ = { player_v: 5, closestTankBulletV: 5, secondClosestTankBulletV: 4 };
 
 function movement() {
-  player.vy = keys[ "w" ] ? -__CONFIG__.player_v : keys[ "s" ] ? __CONFIG__.player_v : 0;
-  player.vx = keys[ "a" ] ? -__CONFIG__.player_v : keys[ "d" ] ? __CONFIG__.player_v : 0;
+  let targetX = ( keys[ "d" ] ? 1 : 0 ) - ( keys[ "a" ] ? 1 : 0 );
+  let targetY = ( keys[ "s" ] ? 1 : 0 ) - ( keys[ "w" ] ? 1 : 0 );
 
-  player.x = Math.max( 23, Math.min( canvas.width - 20, player.x ) ); // clamp kar ra
+  // Normalize diagonal movement
+  const len = Math.sqrt( targetX * targetX + targetY * targetY );
+  if ( len > 0 ) {
+    targetX /= len;
+    targetY /= len;
+  }
+
+  const speed = __CONFIG__.player_v;
+  const smoothing = 0.15;
+
+  player.vx += ( targetX * speed - player.vx ) * smoothing;
+  player.vy += ( targetY * speed - player.vy ) * smoothing;
+
+  // Keep player in bounds
+  player.x = Math.max( 23, Math.min( canvas.width - 20, player.x ) );
   player.y = Math.max( 23, Math.min( canvas.height - 20, player.y ) );
 }
 
@@ -71,15 +83,8 @@ function shootFromTank( player, tanks ) {
     const t = obj.tank;
     const angle = Math.atan2( player.y - t.y, player.x - t.x );
     const speed = speeds[ index ];
-
     bullets.push(
-      new Circle(
-        t.x,
-        t.y,
-        5,
-        Math.cos( angle ) * speed,
-        Math.sin( angle ) * speed
-      )
+      new Circle( t.x, t.y, 5, Math.cos( angle ) * speed, Math.sin( angle ) * speed )
     );
   } );
 }
@@ -134,12 +139,7 @@ function update() {
     const b = bullets[ i ];
     b.update();
 
-    if (
-      b.x < -20 ||
-      b.x > canvas.width + 20 ||
-      b.y < -20 ||
-      b.y > canvas.height + 20
-    ) {
+    if ( b.x < -20 || b.x > canvas.width + 20 || b.y < -20 || b.y > canvas.height + 20 ) {
       bullets.splice( i, 1 );
       continue;
     }
@@ -147,7 +147,6 @@ function update() {
     if ( bulletHitsPlayer( b, player ) ) {
       bullets.splice( i, 1 );
       playerHealth -= 10;
-
       if ( playerHealth <= 0 ) {
         gameOver = true;
         playerHealth = 0;
@@ -163,7 +162,6 @@ update();
 
 document.onkeydown = e => {
   keys[ e.key ] = true;
-
   if ( gameOver ) {
     if ( e.key.toLowerCase() === "y" ) restartGame();
     if ( e.key.toLowerCase() === "n" ) alert( "Thanks for playing!" );
@@ -171,3 +169,8 @@ document.onkeydown = e => {
 };
 
 document.onkeyup = e => ( keys[ e.key ] = false );
+
+window.onresize = () => {
+  canvas.width = document.documentElement.clientWidth;
+  canvas.height = document.documentElement.clientHeight;
+};
