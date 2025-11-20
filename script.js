@@ -122,7 +122,8 @@ setInterval( () => {
 }, 250 );
 
 function update() {
-  ctx.clearRect( 0, 0, canvas.width, canvas.height );
+  ctx.fillStyle = "rgba(58, 58, 58, 0.5)";
+  ctx.fillRect( 0, 0, canvas.width, canvas.height );
 
   drawHealthBar();
   movement();
