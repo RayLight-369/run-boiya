@@ -18,22 +18,16 @@ class Circle {
     this.r = r;
     this.vx = vx;
     this.vy = vy;
-    this.c = "#FFF";
   }
   update() {
-    ctx.save();
     ctx.beginPath();
-    ctx.fillStyle = this.c;
+    ctx.fillStyle = "#FFF";
     ctx.arc( this.x, this.y, this.r, 0, Math.PI * 2 );
     ctx.fill();
     ctx.closePath();
-    ctx.restore();
 
     this.x += this.vx;
     this.y += this.vy;
-  }
-  setColor( color ) {
-    this.c = color;
   }
 }
 
@@ -99,10 +93,8 @@ function shootFromTank( player, tanks ) {
     const t = obj.tank;
     const angle = Math.atan2( player.y - t.y, player.x - t.x );
     const speed = speeds[ index ];
-    const bullet = new Circle( t.x, t.y, 5, Math.cos( angle ) * speed, Math.sin( angle ) * speed );
-    bullet.c = "#FFF000";
     bullets.push(
-      bullet
+      new Circle( t.x, t.y, 5, Math.cos( angle ) * speed, Math.sin( angle ) * speed )
     );
   } );
 }
