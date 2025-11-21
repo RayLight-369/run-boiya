@@ -7,6 +7,10 @@ canvas.height = document.documentElement.clientHeight;
 const keys = {};
 let gameOver = false;
 
+let startTime = Date.now();
+let survivalTime = 0;
+let bestTime = Number( localStorage.getItem( "best_time" ) ) || 0;
+
 class Circle {
   constructor ( x, y, r, vx = 0, vy = 0 ) {
     this.x = x;
@@ -41,13 +45,17 @@ const tanks = [
 const player = new Circle( canvas.width / 2, canvas.height / 2, 10 );
 let playerHealth = 100;
 const bullets = [];
-const __CONFIG__ = { player_v: 5, closestTankBulletV: 5, secondClosestTankBulletV: 4 };
+
+const __CONFIG__ = {
+  player_v: 5,
+  closestTankBulletV: 5,
+  secondClosestTankBulletV: 4
+};
 
 function movement() {
   let targetX = ( keys[ "d" ] ? 1 : 0 ) - ( keys[ "a" ] ? 1 : 0 );
   let targetY = ( keys[ "s" ] ? 1 : 0 ) - ( keys[ "w" ] ? 1 : 0 );
 
-  // Normalize diagonal movement
   const len = Math.sqrt( targetX * targetX + targetY * targetY );
   if ( len > 0 ) {
     targetX /= len;
@@ -60,7 +68,6 @@ function movement() {
   player.vx += ( targetX * speed - player.vx ) * smoothing;
   player.vy += ( targetY * speed - player.vy ) * smoothing;
 
-  // Keep player in bounds
   player.x = Math.max( 23, Math.min( canvas.width - 20, player.x ) );
   player.y = Math.max( 23, Math.min( canvas.height - 20, player.y ) );
 }
@@ -77,7 +84,10 @@ function shootFromTank( player, tanks ) {
     .sort( ( a, b ) => a.dist - b.dist )
     .slice( 0, 2 );
 
-  const speeds = [ __CONFIG__.closestTankBulletV, __CONFIG__.secondClosestTankBulletV ];
+  const speeds = [
+    __CONFIG__.closestTankBulletV,
+    __CONFIG__.secondClosestTankBulletV
+  ];
 
   closestTwo.forEach( ( obj, index ) => {
     const t = obj.tank;
@@ -105,12 +115,26 @@ function drawHealthBar() {
   ctx.strokeRect( 20, 20, maxWidth, 15 );
 }
 
+function drawTimer() {
+  survivalTime = Math.floor( ( Date.now() - startTime ) / 1000 );
+
+  ctx.fillStyle = "white";
+  ctx.font = "20px Arial";
+  ctx.fillText( "Time: " + survivalTime + "s", 20, 60 );
+
+  ctx.fillStyle = "yellow";
+  ctx.fillText( "Best: " + bestTime + "s", 20, 85 );
+}
+
 function drawGameOver() {
   ctx.fillStyle = "white";
   ctx.font = "40px Arial";
-  ctx.fillText( "Game Over!", canvas.width / 2 - 100, canvas.height / 2 - 20 );
+  ctx.fillText( "Game Over!", canvas.width / 2 - 100, canvas.height / 2 - 50 );
+
   ctx.font = "25px Arial";
-  ctx.fillText( "Play Again? (Y / N)", canvas.width / 2 - 110, canvas.height / 2 + 20 );
+  ctx.fillText( "You survived: " + survivalTime + "s", canvas.width / 2 - 110, canvas.height / 2 - 10 );
+  ctx.fillText( "Best: " + bestTime + "s", canvas.width / 2 - 110, canvas.height / 2 + 25 );
+  ctx.fillText( "Play Again? (Y / N)", canvas.width / 2 - 110, canvas.height / 2 + 70 );
 }
 
 function restartGame() {
@@ -119,6 +143,10 @@ function restartGame() {
   playerHealth = 100;
   bullets.length = 0;
   gameOver = false;
+
+  startTime = Date.now();
+  survivalTime = 0;
+
   update();
 }
 
@@ -131,6 +159,7 @@ function update() {
   ctx.fillRect( 0, 0, canvas.width, canvas.height );
 
   drawHealthBar();
+  drawTimer();
   movement();
   player.update();
   tanks.forEach( t => t.update() );
@@ -139,7 +168,12 @@ function update() {
     const b = bullets[ i ];
     b.update();
 
-    if ( b.x < -20 || b.x > canvas.width + 20 || b.y < -20 || b.y > canvas.height + 20 ) {
+    if (
+      b.x < -20 ||
+      b.x > canvas.width + 20 ||
+      b.y < -20 ||
+      b.y > canvas.height + 20
+    ) {
       bullets.splice( i, 1 );
       continue;
     }
@@ -147,9 +181,15 @@ function update() {
     if ( bulletHitsPlayer( b, player ) ) {
       bullets.splice( i, 1 );
       playerHealth -= 10;
+
       if ( playerHealth <= 0 ) {
         gameOver = true;
         playerHealth = 0;
+
+        if ( survivalTime > bestTime ) {
+          bestTime = survivalTime;
+          localStorage.setItem( "best_time", bestTime );
+        }
       }
     }
   }
@@ -162,6 +202,7 @@ update();
 
 document.onkeydown = e => {
   keys[ e.key ] = true;
+
   if ( gameOver ) {
     if ( e.key.toLowerCase() === "y" ) restartGame();
     if ( e.key.toLowerCase() === "n" ) alert( "Thanks for playing!" );
